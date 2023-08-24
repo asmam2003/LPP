@@ -9,9 +9,10 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <string>
+    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
 
 int server() {
-    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1) {
         std::cout << "Failed to create socket" << std::endl;
         return -1;
@@ -22,36 +23,36 @@ int server() {
 
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(5000); // Port number, change if needed
-    server_address.sin_addr.s_addr = INADDR_ANY;
 
     bind(serverSocket, (struct sockaddr*)&server_address, sizeof(server_address));
     listen(serverSocket, 5);
 
     int client_socket = accept(serverSocket, (struct sockaddr*)&client_address, &client_length);
+    std::cout << "Client connected"<<std::endl;
 
     while (true) {
     char buffer[1024];
-    memset(buffer, 0, sizeof(buffer));
 
 
-    int bytesReceived = recv(client_socket, buffer, sizeof(buffer), 0); // message from client
-
-    if (bytesReceived <= 0) {
+    int bytesReceived = recv(client_socket, buffer, sizeof(buffer), 0); // the message from client
+        if (bytesReceived <= 0) {
         std::cout << "Client disconnected." << std::endl;
         break;
-    }
+}
 
     std::cout << "Client: " << buffer << std::endl;
-
-    if (strcmp(buffer, "exit") == 0) {
+    if (buffer=="exit") {
         std::cout << "Client requested to exit." << std::endl;
         break;
     }
-
     std::string response;
-    std::cout << "Enter your response: ";
-    std::getline(std::cin, response);
+    std::cout << "Server: ";
+    std::cin >> response;
     send(client_socket, response.c_str(), response.size(), 0);
+        if (response=="exit") {
+        std::cout << "Server exiting." << std::endl;
+        break;
+    }
 }
 
 
