@@ -30,19 +30,30 @@ int server() {
     int client_socket = accept(serverSocket, (struct sockaddr*)&client_address, &client_length);
 
     while (true) {
-        char buffer[1024];
-        memset(buffer, 0, sizeof(buffer));
+    char buffer[1024];
+    memset(buffer, 0, sizeof(buffer));
 
-        // Receive message from client
-        recv(client_socket, buffer, sizeof(buffer), 0);
-        std::cout << "Client: " << buffer << std::endl;
 
-        // Send response to client
-        std::string response;
-        std::cout << "Enter your response: ";
-        std::getline(std::cin, response);
-        send(client_socket, response.c_str(), response.size(), 0);
+    int bytesReceived = recv(client_socket, buffer, sizeof(buffer), 0); // message from client
+
+    if (bytesReceived <= 0) {
+        std::cout << "Client disconnected." << std::endl;
+        break;
     }
+
+    std::cout << "Client: " << buffer << std::endl;
+
+    if (strcmp(buffer, "exit") == 0) {
+        std::cout << "Client requested to exit." << std::endl;
+        break;
+    }
+
+    std::string response;
+    std::cout << "Enter your response: ";
+    std::getline(std::cin, response);
+    send(client_socket, response.c_str(), response.size(), 0);
+}
+
 
     close(client_socket);
     close(serverSocket);
@@ -61,23 +72,34 @@ int client() {
 
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(5000);
-    server_address.sin_addr.s_addr = inet_addr("127.0.0.1"); // Change to the server's IP
+    server_address.sin_addr.s_addr = inet_addr("10.5.61.50");
 
     connect(client_socket, (struct sockaddr*)&server_address, sizeof(server_address));
 
     while (true) {
-        std::string message;
-        std::cout << "Enter a message to send: ";
-        std::getline(std::cin, message);
-        send(client_socket, message.c_str(), message.size(), 0);
+    std::string message;
+    std::cout << "Enter a message to send: ";
+    std::getline(std::cin, message);
+    send(client_socket, message.c_str(), message.size(), 0);
 
-        char buffer[1024];
-        memset(buffer, 0, sizeof(buffer));
-
-        // Receive response from server
-        recv(client_socket, buffer, sizeof(buffer), 0);
-        std::cout << "Server: " << buffer << std::endl;
+    if (message == "exit") {
+        std::cout << "Exiting" << std::endl;
+        break;
     }
+
+    char buffer[1024];
+    memset(buffer, 0, sizeof(buffer));
+
+    int bytesReceived = recv(client_socket, buffer, sizeof(buffer), 0);
+
+    if (bytesReceived <= 0) {
+        std::cout << "Server disconnected." << std::endl;
+        break;
+    }
+
+    std::cout << "Server: " << buffer << std::endl;
+}
+
 
     close(client_socket);
 
@@ -86,8 +108,7 @@ int client() {
 
 int main() {
 
-
-        server();
+        server ();
         client();
 
 
