@@ -80,16 +80,16 @@ int client() {
     while (true) {
     std::string message;
     std::cout << "Enter a message to send: ";
-    std::getline(std::cin, message);
+    std::cin >> message;
     send(client_socket, message.c_str(), message.size(), 0);
 
     if (message == "exit") {
-        std::cout << "Exiting" << std::endl;
+        close(client_socket);
+        std::cout << "exiting" << std::endl;
         break;
     }
 
     char buffer[1024];
-    memset(buffer, 0, sizeof(buffer));
 
     int bytesReceived = recv(client_socket, buffer, sizeof(buffer), 0);
 
@@ -109,7 +109,7 @@ int client() {
 
 int main() {
 
-        server ();
+
         client();
 
 
