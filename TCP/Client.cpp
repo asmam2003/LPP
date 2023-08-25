@@ -1,4 +1,19 @@
-  int client() {
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <string>
+
+    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+int client() {
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket == -1) {
         std::cout << "Failed to create socket" << std::endl;
