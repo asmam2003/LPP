@@ -1,0 +1,55 @@
+class LppHeader :
+{
+
+    uint8_t *m_data;
+  uint8_t m_flag; //more packets or not
+  uint32_t m_dataSize;
+  uint16_t m_packetLength;          //!< The packet length.
+  packet_type m_packetType;  //!< The packet sequence number.
+  packet_subtype m_packetSubType;  //!< The packet sequence number.
+  int64_t m_packetTime;
+
+public:
+  LppHeader ();
+enum packet_type // for each packet_type case, there will be a packet_subtype
+  {
+        REQUEST, //when a packet type from either server or client sends from the other will ask
+        PROVIDE, // one for client to provide, one for server to provide
+        ABORT
+  };
+
+enum packet_subtype
+  {
+        CAPABILITIES,
+        ASSISTANCE_DATA,
+        LOCATION_INFO,
+        CERTIFICATE,
+        ERROR,
+        FATAL
+  };
+
+  int main (){
+  switch(type)
+    {
+	case LppHeader::packet_type::ABORT:
+	      serversocket->Close ();
+            
+	      break;
+	      case LppHeader::packet_type::PROVIDE:
+         switch(subtype)
+         {
+		case LppHeader::packet_subtype::CAPABILITIES:
+                     header.SendLppPacket(socket, LppHeader::packet_type::REQUEST, LppHeader::packet_subtype::LOCATION_INFO, from);
+		     break;
+		case LppHeader::packet_subtype::LOCATION_INFO:
+                     header.SendLppPacket(socket, LppHeader::packet_type::PROVIDE, LppHeader::packet_subtype::CERTIFICATE, from);
+                     break;
+                case LppHeader::packet_subtype::ASSISTANCE_DATA: //write function to fetch assistance data
+                case LppHeader::packet_subtype::CERTIFICATE: // write function to fetch  certifcate
+                case LppHeader::packet_subtype::ERROR: //write function to indicate error
+                case LppHeader::packet_subtype::FATAL:
+		     header.SendLppPacket(socket, LppHeader::packet_type::ABORT, LppHeader::packet_subtype::ERROR, from);
+    		      break;
+          }
+
+    }
