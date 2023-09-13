@@ -1,0 +1,236 @@
+#include "ns3/log.h"
+#include "ns3/ipv4-address.h"
+#include "ns3/ipv6-address.h"
+#include "ns3/address-utils.h"
+#include "ns3/nstime.h"
+#include "ns3/inet-socket-address.h"
+#include "ns3/inet6-socket-address.h"
+#include "ns3/socket.h"
+#include "ns3/tcp-socket.h"
+#include "ns3/simulator.h"
+#include "ns3/socket-factory.h"
+#include "ns3/packet.h"
+#include "ns3/uinteger.h"
+
+#include "lpp-server.h"
+
+TypeId
+LppServer::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::LppServer")
+    .SetParent<Application> ()
+    .SetGroupName("Applications")
+    .AddConstructor<LppServer> ()
+    .AddAttribute ("ServerAddress", "Address of the server.",
+                   AddressValue (),
+                   MakeAddressAccessor (&LppServer::m_local),
+                   MakeAddressChecker ())
+    .AddAttribute ("Port", "Port on which we listen for incoming packets.",
+                   UintegerValue (9),
+                   MakeUintegerAccessor (&LppServer::m_port),
+                   MakeUintegerChecker<uint16_t> ())
+    .AddTraceSource ("Rx", "A packet has been received",
+                     MakeTraceSourceAccessor (&LppServer::m_rxTrace),
+                     "ns3::Packet::TracedCallback")
+    .AddTraceSource ("RxWithAddresses", "A packet has been received",
+                     MakeTraceSourceAccessor (&LppServer::m_rxTraceWithAddresses),
+                     "ns3::Packet::TwoAddressTracedCallback")
+  ;
+  return tid;
+}
+
+LppServer::LppServer ()
+{
+  NS_LOG_FUNCTION (this);
+  m_size = 0;
+  m_dataSize = 0;
+}
+
+LppServer::~LppServer()
+{
+  NS_LOG_FUNCTION (this);
+  m_socket = 0;
+  m_socket6 = 0;
+}
+
+void
+LppServer::DoDispose (void)
+{
+  NS_LOG_FUNCTION (this);
+  Application::DoDispose ();
+}
+
+void
+LppServer::SetFill(std::string fill)
+{
+   NS_LOG_FUNCTION (this << fill);
+
+  uint32_t dataSize = fill.size () + 1;
+
+  if (dataSize != m_dataSize)
+    {
+      delete [] m_data;
+      m_data = new uint8_t [dataSize];
+      m_dataSize = dataSize;
+    }
+
+  memcpy (m_data, fill.c_str (), dataSize);
+
+  //
+  // Overwrite packet size attribute.
+  //
+  m_size = dataSize;
+
+}
+
+void LppServer::StopApplication ()
+{
+  NS_LOG_FUNCTION (this);
+
+  if (m_socket != 0) 
+    {
+      m_socket->Close ();
+      m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
+    }
+  if (m_socket6 != 0) 
+    {
+      m_socket6->Close ();
+      m_socket6->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
+    }
+}
+
+
+  /*
+   * A typical connection is established after receiving an empty (i.e., no
+   * data) TCP packet with ACK flag. The actual data will follow in a separate
+   * packet after that and will be received by ReceivedDataCallback().
+   *
+   * However, that empty ACK packet might get lost. In this case, we may
+   * receive the first data packet right here already, because it also counts
+   * as a new connection. The statement below attempts to fetch the data from
+   * that packet, if any.
+   */
+ // LppHeader header;
+//  header.SendLppPacket(socket, LppHeader::packet_type::REQUEST, LppHeader::packet_subtype::CAPABILITIES, address);
+  HandleRead (socket);
+}
+
+
+void
+LppServer::NormalCloseCallback (Ptr<Socket> socket)
+{
+  NS_LOG_FUNCTION (this << socket);
+
+  if (socket == m_socket)
+    {
+   }
+}
+
+void LppServer::SendCallback (Ptr<Socket> socket, uint32_t availableBufferSize)
+{
+  NS_LOG_FUNCTION (this << socket << availableBufferSize);
+
+} // end of `void SendCallback (Ptr<Socket> socket, uint32_t availableBufferSize)`
+
+void LppServer::HandleRead (Ptr<Socket> socket)
+{
+  NS_LOG_FUNCTION (this << socket);
+
+  Ptr<Packet> packet;
+  Address from;
+  Address localAddress;
+  while ((packet = socket->RecvFrom (from)))
+    {
+      socket->GetSockName (localAddress);
+      m_rxTrace (packet);
+      m_rxTraceWithAddresses (packet, from, localAddress);
+      if (InetSocketAddress::IsMatchingType (from))
+        {
+          NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds () << "s server received " << packet->GetSize () << " bytes from " <<
+                       InetSocketAddress::ConvertFrom (from).GetIpv4 () << " port " <<
+                       InetSocketAddress::ConvertFrom (from).GetPort ());
+        }
+      else if (Inet6SocketAddress::IsMatchingType (from))
+        {
+          NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds () << "s server received " << packet->GetSize () << " bytes from " <<
+                       Inet6SocketAddress::ConvertFrom (from).GetIpv6 () << " port " <<
+                       Inet6SocketAddress::ConvertFrom (from).GetPort ());
+        }
+      HandlePacket(socket, packet, from);
+      }
+}
+
+void LppServer::HandlePacket(Ptr<Socket> socket, Ptr<Packet> packet, Address from)
+{
+    LppHeader header;
+    packet->PeekHeader(header);
+    uint8_t flag = 0;
+   if ( header.GetFlag() != 0)
+	flag = header.GetFlag()-1;
+   
+    LppHeader::packet_type type = header.GetPacketType();
+    LppHeader::packet_subtype subtype = header.GetPacketSubType();
+    packet->RemoveAllPacketTags ();
+    packet->RemoveAllByteTags ();
+    switch(type)
+    {
+	case LppHeader::packet_type::ABORT:
+	      m_socket->Close ();
+      	      m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
+	      break;
+	case LppHeader::packet_type::PROVIDE:
+         switch(subtype)
+         {
+		case LppHeader::packet_subtype::CAPABILITIES:
+                     header.SendLppPacket(socket, LppHeader::packet_type::REQUEST, LppHeader::packet_subtype::LOCATION_INFO, from);
+		     break;
+		case LppHeader::packet_subtype::LOCATION_INFO:
+                     header.SendLppPacket(socket, LppHeader::packet_type::PROVIDE, LppHeader::packet_subtype::CERTIFICATE, from);
+                     break;
+                case LppHeader::packet_subtype::ASSISTANCE_DATA:
+                case LppHeader::packet_subtype::CERTIFICATE:
+                case LppHeader::packet_subtype::ERROR:
+                case LppHeader::packet_subtype::FATAL: 
+		     header.SendLppPacket(socket, LppHeader::packet_type::ABORT, LppHeader::packet_subtype::ERROR, from);  
+    		      break;
+          }
+	  break;
+	 case LppHeader::packet_type::REQUEST:
+           switch(subtype)
+           {
+		case LppHeader::packet_subtype::CAPABILITIES:
+		case LppHeader::packet_subtype::LOCATION_INFO:
+                     header.SendLppPacket(socket, LppHeader::packet_type::ABORT, LppHeader::packet_subtype::ERROR, from);
+                     break;
+                case LppHeader::packet_subtype::ASSISTANCE_DATA:
+                     header.SendLppPacket(socket, LppHeader::packet_type::PROVIDE, LppHeader::packet_subtype::ASSISTANCE_DATA, from, flag);
+    		     break;
+                case LppHeader::packet_subtype::CERTIFICATE:
+                     header.SendLppPacket(socket, LppHeader::packet_type::REQUEST, LppHeader::packet_subtype::CAPABILITIES, from);
+                     break;
+                case LppHeader::ERROR:
+                case LppHeader::FATAL: 
+                     header.SendLppPacket(socket, LppHeader::packet_type::ABORT, LppHeader::packet_subtype::ERROR, from);
+    		      break;
+        
+
+           }
+
+     } 	
+
+      if (InetSocketAddress::IsMatchingType (from))
+        {
+          NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds () << "s server sent " << packet->GetSize () << " bytes to " <<
+                       InetSocketAddress::ConvertFrom (from).GetIpv4 () << " port " <<
+                       InetSocketAddress::ConvertFrom (from).GetPort ());
+        }
+      else if (Inet6SocketAddress::IsMatchingType (from))
+        {
+          NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds () << "s server sent " << packet->GetSize () << " bytes to " <<
+                       Inet6SocketAddress::ConvertFrom (from).GetIpv6 () << " port " <<
+                       Inet6SocketAddress::ConvertFrom (from).GetPort ());
+        }
+
+}
+
+}
