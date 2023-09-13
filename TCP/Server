@@ -187,7 +187,6 @@ LppServer::HandlePacket(*serverSocket, Ptr<Packet> packet, Address from)
     return 0;
 }
 
-
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -224,5 +223,25 @@ int main() {
 
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(5000);
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0
+    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
+    if (connect(clientSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
+        perror("Error connecting");
+        close(clientSocket);
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "Connected to server" << std::endl;
+
+    // Example usage of sending an LPP packet
+    header.packetLength = sizeof(LppHeader) + MAX_DATA;
+    header.packetType = 1; // REQUEST
+    header.packetSubType = 1; // CAPABILITIES
+    header.flag = 0;
+
+    sendLppPacket(clientSocket, header, data, MAX_DATA);
+
+    close(clientSocket);
+
+    return 0;
+}
