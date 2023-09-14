@@ -1,0 +1,124 @@
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <string.h>
+#include <string>
+
+enum class PacketType {
+    REQUEST,
+    PROVIDE,
+    ABORT
+};
+
+enum class PacketSubType {
+    CAPABILITIES,
+    ASSISTANCE_DATA,
+    LOCATION_INFO,
+    CERTIFICATE,
+    ERROR,
+    FATAL
+};
+
+struct PacketHeader {
+    int sourcePort;
+    int destPort;
+    int sequenceNumber;
+    std::string data;
+    int flag;
+    int dataSize;
+    int packetLength;
+    PacketType packetType;
+    PacketSubType packetSubType;
+    int packetID;
+};
+
+struct SubPacket {
+    PacketHeader header;
+};
+
+struct Packet {
+    PacketHeader header;
+    SubPacket subPacket;
+
+};
+
+
+Packet generatePacket(PacketType type, PacketSubType subType, int packetID) {
+    Packet packet;
+    packet.header.sourcePort = PORT; //add port number
+    packet.header.destPort = PORT; // add port number for receiving end.
+    packet.header.sequenceNumber = packetID;
+    packet.header.data = "Data";
+    packet.header.flag = 0;
+    packet.header.dataSize = packet.header.data.size();
+    packet.header.packetLength = sizeof(Packet);
+    packet.header.packetType = type;
+    packet.header.packetSubType = subType;
+    packet.header.packetID = packetID;
+
+    SubPacket subPacket;
+    subPacket.header = packet.header;
+    packet.subPacket.header = packet.header;
+
+    return packet;
+}
+
+void sendPacket(int clientSocket, Packet packet) {
+    send(clientSocket, &packet, sizeof(packet), 0);
+}
+
+void handleRead(int clientSocket) {
+    int packetTypeID, packetSubTypeID, packetID;
+    recv(clientSocket, &packetTypeID, sizeof(packetTypeID), 0);
+    recv(clientSocket, &packetSubTypeID, sizeof(packetSubTypeID), 0);
+    recv(clientSocket, &packetID, sizeof(packetID), 0);
+
+    PacketType type = static_cast<PacketType>(packetTypeID);
+    PacketSubType subType = static_cast<PacketSubType>(packetSubTypeID);
+
+    Packet packetToSend;
+
+    switch (type) {
+        case PacketType::ABORT:
+            break;
+        case PacketType::PROVIDE:
+            switch (subType) {
+                case PacketSubType::CAPABILITIES:
+                    packetToSend = generatePacket(PacketType::REQUEST, PacketSubType::LOCATION_INFO, packetID);
+                    break;
+                case PacketSubType::LOCATION_INFO:
+                    packetToSend = generatePacket(PacketType::PROVIDE, PacketSubType::CERTIFICATE, packetID);
+                    break;
+                case PacketSubType::ASSISTANCE_DATA:
+                case PacketSubType::CERTIFICATE:
+                case PacketSubType::ERROR:
+                case PacketSubType::FATAL:
+                    packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
+                    break;
+            }
+            break;
+        case PacketType::REQUEST:
+            switch (subType) {
+                case PacketSubType::CAPABILITIES:
+                case PacketSubType::LOCATION_INFO:
+                packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
+                    break;
+                case PacketSubType::ASSISTANCE_DATA:
+        	packetToSend = generatePacket(PacketType::PROVIDE, PacketSubType::ASSISTANCE_DATA, packetID);
+                    break;
+                case PacketSubType::CERTIFICATE:
+                case PacketSubType::ERROR:
+                case PacketSubType::FATAL:
+                    packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
+                    break;
+            }
+            break;
+    }
+
+    sendPacket(clientSocket, packetToSend);
+}
+
