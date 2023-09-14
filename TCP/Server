@@ -186,72 +186,92 @@ LppServer::HandlePacket(*serverSocket, Ptr<Packet> packet, Address from)
 
     return 0;
 }
+
+
 #include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstring>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include <string.h>
-#include <string>
 
-int client_socket = socket(AF_INET, SOCK_STREAM, 0);
+enum PacketType {
+    REQUEST = 1,
+    RESPONSE
+};
 
-int client() {
-    if (client_socket == -1) {
-        std::cout << "Failed to create socket" << std::endl;
-        return -1;
+enum PacketSubType {
+    SUB_PACKET_1 = 1,
+    SUB_PACKET_2,
+    SUB_PACKET_3
+};
+
+struct PacketHeader {
+    int sourcePort;
+    int destPort;
+    int sequenceNumber;
+    int dataSize;
+    int packetLength;
+    PacketType packetType;
+    PacketSubType packetSubType;
+    int packetID;
+};
+
+struct SubPacket {
+    PacketHeader header;
+    std::string data;
+};
+
+struct Packet {
+    PacketHeader header;
+    std::vector<SubPacket> subPackets;
+};
+
+
+const char* SERVER_IP = "10.5.61.52";
+const int PORT = 8080;
+
+void sendRequest(int clientSocket, Packet requestPacket) {
+    send(clientSocket, &requestPacket, sizeof(requestPacket), 0);
+}
+
+void receiveResponse(int clientSocket) {
+    Packet responsePacket;
+    recv(clientSocket, &responsePacket, sizeof(responsePacket), 0);
+
+    for (const auto& subPacket : responsePacket.subPackets) {
+        std::cout << "Received Sub-Packet Type: " << subPacket.header.packetSubType << ", Data: " << subPacket.data << std::endl;
     }
-
-    sockaddr_in server_address;
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(5000); // Port number, change if needed
-    server_address.sin_addr.s_addr = inet_addr("127.0.0.1"); // Server IP address
-
-    if (connect(client_socket, (struct sockaddr*)&server_address, sizeof(server_address)) < 0) {
-        std::cout << "Connection failed" << std::endl;
-        return -1;
-    }
-
-    while (true) {
-        std::string message;
-        std::cout << "Client: ";
-        std::cin >> message;
-
-        // Convert the message to an LPP packet and send it
-        // Example: message = "Hello"
-        // You need to construct an LPP packet from the message string
-        // char messagePacket[1024];
-        // messagePacket[0] = static_cast<char>(LppPacketType::REQUEST); // Example type
-        // messagePacket[1] = static_cast<char>(LppPacketSubtype::CAPABILITIES); // Example subtype
-        // memcpy(messagePacket + 2, message.c_str(), message.size());
-        // send(client_socket, messagePacket, message.size() + 2, 0);
-
-        if (message == "exit") {
-            std::cout << "Client exiting." << std::endl;
-            break;
-        }
-
-        char buffer[1024];
-        int bytesReceived = recv(client_socket, buffer, sizeof(buffer), 0);
-
-        if (bytesReceived <= 0) {
-            std::cout << "Server disconnected." << std::endl;
-            break;
-        }
-
-        // Handle response
-        std::cout << "Server: " << buffer << std::endl;
-    }
-
-    close(client_socket);
-
-    return 0;
 }
 
 int main() {
-    client();
+    int clientSocket;
+    struct sockaddr_in serverAddr;
 
+    // Create socket
+    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(PORT);
+    serverAddr.sin_addr.s_addr = inet_addr(SERVER_IP);
+
+    // Connect to server
+    connect(clientSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+
+    Packet requestPacket;
+    requestPacket.header.packetType = REQUEST;
+
+    for (int i = 1; i <= 3; ++i) {
+        SubPacket subPacket;
+        subPacket.header.packetSubType = static_cast<PacketSubType>(i);
+        requestPacket.subPackets.push_back(subPacket);
+    }
+
+    // Send requests and receive responses
+    sendRequest(clientSocket, requestPacket);
+    receiveResponse(clientSocket);
+
+    close(clientSocket);
     return 0;
 }
+
