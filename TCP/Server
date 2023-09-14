@@ -189,10 +189,17 @@ LppServer::HandlePacket(*serverSocket, Ptr<Packet> packet, Address from)
 
 
 #include <iostream>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <string.h>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <netinet/in.h>
 
 enum PacketType {
     REQUEST = 1,
