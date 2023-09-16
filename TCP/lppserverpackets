@@ -8,13 +8,13 @@
 #include <string.h>
 #include <string>
 
-enum class PacketType {
+enum PacketType {
     REQUEST,
     PROVIDE,
     ABORT
 };
 
-enum class PacketSubType {
+enum PacketSubType {
     CAPABILITIES,
     ASSISTANCE_DATA,
     LOCATION_INFO,
