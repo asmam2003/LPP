@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <string>
+#include <arpa/inet.h>
 
 int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -80,20 +81,22 @@ Packet generatePacket(PacketType type, PacketSubType subType, int packetID)
 
 void sendPacket(int serverSocket, Packet packet)
 {
-int PORT=5000;
     send(serverSocket, &packet, sizeof(packet), 0);
 } //server sending packets
 Packet sendLPP(PacketType type, PacketSubType subType, int packetID)
 {
-    Packet provide_locationinfo;
+int PORT=5000;
 
-    provide_locationinfo.header=REQUEST;
-    provide_locationinfo.header.subType=ASSISTANCE_DATA;
-    provide_locationinfo.header.packetdata="Data";
-    provide_locationinfo.header.datasize=sizeof(provide_locationinfo.header.packetdata);
+    Packet provide_locationinfo;
+    provide_locationinfo.header.packetType=REQUEST;
+    provide_locationinfo.header.packetSubType=ASSISTANCE_DATA;
+    provide_locationinfo.header.data="Data";
+    provide_locationinfo.header.dataSize=sizeof(provide_locationinfo.header.data);
     provide_locationinfo.header.sourcePort=PORT;
     provide_locationinfo.header.destPort=PORT;
     provide_locationinfo.header.flag=0;
+    provide_locationinfo.header.dataSize = provide_locationinfo.header.data.size();
+
     return provide_locationinfo;
     //Packet PacketHeader PacketType request=REQUEST;
     //acket SubPacket PacketHeader PacketSubType assistance=ASSISTANCE_DATA;
@@ -101,7 +104,7 @@ Packet sendLPP(PacketType type, PacketSubType subType, int packetID)
 
 
 }
-
+\
 void handleRead(int clientSocket)
 {
     int packetTypeID, packetSubTypeID, packetID;
@@ -201,17 +204,7 @@ int server()
     return 0;
 }
 
-#include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <string>
+
 
 
 int client()
@@ -236,29 +229,17 @@ int client()
 
     while (true)
     {
-        std::string message;
+        char message;
         std::cout << "Enter a message to send: ";
         std::cin >> message;
-        if(message="Send Request")
+        if(message=='S')
         {
-            send(client_socket, SendLppPacket,sizeof(SendLppPacket));
+        Packet packetToSend = sendLPP(REQUEST, ASSISTANCE_DATA, 1);
+        send(client_socket, &packetToSend, sizeof(packetToSend), 0);
+
         }
 
-        if (message == "exit")
-        {
-            close(client_socket);
-            std::cout << "exiting" << std::endl;
-            break;
-        }
-
-        char buffer[1024];
-
-        int bytesReceived = recv(client_socket, buffer, sizeof(buffer), 0);
-
-
-
-        std::cout << "Server: " << buffer << std::endl;
-    }
+}
 
 
     close(client_socket);
@@ -275,19 +256,3 @@ int main()
 
     return 0;
 }
-//||=== Build file: "no target" in "no project" (compiler: unknown) ===|
-/home/draf/Desktop/Server3/main.cpp||In function ‘Packet sendLPP(PacketType, PacketSubType, int)’:|
-/home/draf/Desktop/Server3/main.cpp|90|error: no match for ‘operator=’ (operand types are ‘PacketHeader’ and ‘PacketType’)|
-/home/draf/Desktop/Server3/main.cpp|31|note: candidate: ‘PacketHeader& PacketHeader::operator=(const PacketHeader&)’|
-/home/draf/Desktop/Server3/main.cpp|31|note:   no known conversion for argument 1 from ‘PacketType’ to ‘const PacketHeader&’|
-/home/draf/Desktop/Server3/main.cpp|31|note: candidate: ‘PacketHeader& PacketHeader::operator=(PacketHeader&&)’|
-/home/draf/Desktop/Server3/main.cpp|31|note:   no known conversion for argument 1 from ‘PacketType’ to ‘PacketHeader&&’|
-/home/draf/Desktop/Server3/main.cpp|91|error: ‘struct PacketHeader’ has no member named ‘subType’|
-/home/draf/Desktop/Server3/main.cpp|92|error: ‘struct PacketHeader’ has no member named ‘packetdata’|
-/home/draf/Desktop/Server3/main.cpp|93|error: ‘struct PacketHeader’ has no member named ‘datasize’; did you mean ‘dataSize’?|
-/home/draf/Desktop/Server3/main.cpp|93|error: ‘struct PacketHeader’ has no member named ‘packetdata’|
-/home/draf/Desktop/Server3/main.cpp|94|error: ‘PORT’ was not declared in this scope|
-/home/draf/Desktop/Server3/main.cpp||In function ‘int client()’:|
-/home/draf/Desktop/Server3/main.cpp|242|error: could not convert ‘message.std::__cxx11::basic_string<char>::operator=(((const char*)"Send Request"))’ from ‘std::__cxx11::basic_string<char>’ to ‘bool’|
-/home/draf/Desktop/Server3/main.cpp|244|error: ‘SendLppPacket’ was not declared in this scope; did you mean ‘sendPacket’?|
-||=== Build failed: 8 error(s), 0 warning(s) (0 minute(s), 0 second(s)) ===|
