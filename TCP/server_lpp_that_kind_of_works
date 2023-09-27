@@ -1,0 +1,200 @@
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <string.h>
+#include <string>
+
+int serverSocket = socket(AF_PACKET,SOCK_RAW,IPPROTO_RAW);
+int clientSocket = socket(AF_PACKET,SOCK_RAW,IPPROTO_RAW);
+
+enum class PacketType {
+    REQUEST,
+    PROVIDE,
+    ABORT
+};
+
+enum class PacketSubType {
+    CAPABILITIES,
+    ASSISTANCE_DATA,
+    LOCATION_INFO,
+    CERTIFICATE,
+    ERROR,
+    FATAL
+};
+
+struct PacketHeader {
+    int sourcePort;
+    int destPort;
+    int sequenceNumber;
+    std::string data;
+    int flag;
+    int dataSize;
+    int packetLength;
+    PacketType packetType;
+    PacketSubType packetSubType;
+    int packetID;
+};
+
+struct SubPacket {
+    PacketHeader header;
+};
+
+struct Packet {
+    PacketHeader header;
+    SubPacket subPacket;
+
+    // Serialize the packet into a byte stream
+    std::string serialize() {
+        std::string result;
+        result.append(reinterpret_cast<char*>(&header), sizeof(PacketHeader));
+        return result;
+    }
+
+    // Deserialize a byte stream into a packet
+    static Packet deserialize(const std::string& data) {
+        Packet packet;
+        memcpy(&packet.header, data.data(), sizeof(PacketHeader));
+        return packet;
+    }
+};
+
+// Helper function to convert endianness
+int convertEndianness(int value) {
+    return htonl(value);
+}
+
+Packet generatePacket(PacketType type, PacketSubType subType, int packetID) {
+    Packet packet;
+    packet.header.sourcePort = htons(5000);
+    packet.header.destPort = htons(5000);
+    packet.header.sequenceNumber = convertEndianness(packetID);
+    packet.header.data = "Data";
+    packet.header.flag = convertEndianness(0);
+    packet.header.dataSize = convertEndianness(packet.header.data.size());
+    packet.header.packetLength = convertEndianness(sizeof(Packet));
+    packet.header.packetType = type;
+    packet.header.packetSubType = subType;
+    packet.header.packetID = convertEndianness(packetID);
+
+    SubPacket subPacket;
+    subPacket.header = packet.header;
+    packet.subPacket.header = packet.header;
+
+    return packet;
+}
+
+void sendPacket(int serverSocket, Packet packet) {
+    std::string serializedPacket = packet.serialize();
+    send(serverSocket, serializedPacket.c_str(), serializedPacket.size(), 0);
+}
+
+void handleRead(int clientSocket) {
+    // Assuming that the packet is received as a whole
+    char buffer[sizeof(PacketHeader)];
+    recv(clientSocket, buffer, sizeof(PacketHeader), 0);
+
+    Packet receivedPacket = Packet::deserialize(std::string(buffer, sizeof(PacketHeader)));
+    int packetTypeID, packetSubTypeID, packetID;
+    recv(clientSocket, &packetTypeID, sizeof(packetTypeID), 0);
+    recv(clientSocket, &packetSubTypeID, sizeof(packetSubTypeID), 0);
+    recv(clientSocket, &packetID, sizeof(packetID), 0);
+
+    PacketType type = static_cast<PacketType>(packetTypeID);
+    PacketSubType subType = static_cast<PacketSubType>(packetSubTypeID);
+
+    Packet packetToSend;
+
+    switch (type) {
+        case PacketType::ABORT:
+            break;
+        case PacketType::PROVIDE:
+            switch (subType) {
+                case PacketSubType::CAPABILITIES:
+                    packetToSend = generatePacket(PacketType::REQUEST, PacketSubType::LOCATION_INFO, packetID);
+                    break;
+                case PacketSubType::LOCATION_INFO:
+                    packetToSend = generatePacket(PacketType::PROVIDE, PacketSubType::CERTIFICATE, packetID);
+                    break;
+                case PacketSubType::ASSISTANCE_DATA:
+                case PacketSubType::CERTIFICATE:
+                case PacketSubType::ERROR:
+                case PacketSubType::FATAL:
+                    packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
+                    break;
+            }
+            break;
+        case PacketType::REQUEST:
+            switch (subType) {
+                case PacketSubType::CAPABILITIES:
+                case PacketSubType::LOCATION_INFO:
+                    packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
+                    break;
+                case PacketSubType::ASSISTANCE_DATA:
+                        packetToSend = generatePacket(PacketType::PROVIDE, PacketSubType::ASSISTANCE_DATA, packetID);
+                    break;
+                case PacketSubType::CERTIFICATE:
+                case PacketSubType::ERROR:
+                case PacketSubType::FATAL:
+                    packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
+                    break;
+            }
+            break;
+    }
+
+    sendPacket(clientSocket, packetToSend); //when the server gets one of these packets, it will send a packet based on the packet recieved
+}
+
+
+    int server() {
+    if (serverSocket == -1) {
+        std::cout << "Failed to create socket" << std::endl;
+        return -1;
+    }
+
+    sockaddr_in server_address, client_address;
+    socklen_t client_length = sizeof(client_address);
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(5000); // Port number, change if needed
+
+    bind(serverSocket, (struct sockaddr*)&server_address, sizeof(server_address));
+    listen(serverSocket, 5);
+
+     clientSocket=accept(serverSocket, (struct sockaddr*)&client_address, &client_length);
+    std::cout << "Client connected"<<std::endl;
+
+
+    while (true) {
+    Packet receivedPacket;
+    int bytesReceived1 = recv(clientSocket, &receivedPacket, sizeof(Packet), 0); // the message from client
+        if (bytesReceived1 <= 0) {
+        std::cout << "Client disconnected." << std::endl;
+        break;
+}
+
+    std::cout << "Client: " << &receivedPacket<<std::endl;
+
+
+
+}
+
+
+
+    close(clientSocket);
+
+
+    return 0;
+}
+
+
+    int main() {
+
+
+        server();
+
+
+    return 0;
+}
