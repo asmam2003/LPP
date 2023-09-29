@@ -31,13 +31,13 @@ enum PacketSubType
 
 struct PacketHeader
 {
-    int sourcePort;
-    int destPort;
+    uint16_tsourcePort;
+    uint16_tdestPort;
     int sequenceNumber;
     std::string data;
     int flag;
-    int dataSize;
-    int packetLength;
+    uint32_t dataSize;
+    uint32_t packetLength;
     PacketType packetType;
     PacketSubType packetSubType;
     int packetID;
