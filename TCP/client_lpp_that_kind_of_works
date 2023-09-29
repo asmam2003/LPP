@@ -9,19 +9,19 @@
 #include <string>
 #include <arpa/inet.h>
 
-int serverSocket = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW);
-int clientSocket = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW);
+int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 
 enum PacketType
 {
-    REQUEST,
+    REQUEST=1,
     PROVIDE,
     ABORT
 };
 
 enum PacketSubType
 {
-    CAPABILITIES,
+    CAPABILITIES=10,
     ASSISTANCE_DATA,
     LOCATION_INFO,
     CERTIFICATE,
@@ -176,7 +176,7 @@ while (true) {
         std::cout << "Enter a message to send: ";
         std::cin >> message;
 
-        Packet packetToSend = generatePacket(PacketType::REQUEST, PacketSubType::ASSISTANCE_DATA, 1);
+        Packet packetToSend = generatePacket(PacketType::REQUEST, PacketSubType::ASSISTANCE_DATA, 0);
         send(clientSocket, &packetToSend, sizeof(packetToSend), 1);
 
         }
