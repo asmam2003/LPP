@@ -1,0 +1,57 @@
+#include <iostream>
+#include <cstring>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+struct CustomPacket {
+    uint8_t flag;
+    uint16_t dataSize;
+    uint16_t packetLength;
+    uint8_t packetType;
+    uint8_t packetSubtype;
+    char data[1024];
+};
+
+int main() {
+    int sockfd;
+    struct sockaddr_in server_addr;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("Error creating socket");
+        return 1;
+    }
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(8080);
+    server_addr.sin_addr.s_addr = inet_addr("10.5.61.52");
+
+    if (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Error connecting to server");
+        close(sockfd);
+        return 1;
+    }
+
+    CustomPacket packet;
+    packet.flag = 1;
+    packet.dataSize = htons(10);
+    packet.packetLength = htons(sizeof(CustomPacket));
+    packet.packetType = 2;
+    packet.packetSubtype = 3;
+    strcpy(packet.data, "Hello");
+
+    ssize_t sent_bytes = send(sockfd, &packet, sizeof(CustomPacket), 0);
+    if (sent_bytes < 0) {
+        perror("Error sending data");
+        close(sockfd);
+        return 1;
+    }
+
+    std::cout << "Sent " << sent_bytes << " bytes." << std::endl;
+
+    close(sockfd);
+
+    return 0;
+}
