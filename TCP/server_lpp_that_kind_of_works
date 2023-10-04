@@ -1,179 +1,107 @@
 #include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
+#include <cstring>
 #include <unistd.h>
-#include <string.h>
-#include <string>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
-int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-
-enum  PacketType {
-    REQUEST = 1,
-    PROVIDE,
-    ABORT
+enum PacketType {
+    REQUEST=0,
+    PROVIDE=1,
+    ABORT=2
 };
 
-enum PacketSubType {
-    CAPABILITIES = 10,
-    ASSISTANCE_DATA,
-    LOCATION_INFO,
-    CERTIFICATE,
-    ERROR,
-    FATAL
+enum PacketSubtype {
+    CAPABILITIES=0,
+    ASSISTANCE_DATA=1,
+    LOCATION_INFO=2,
+    CERTIFICATE=3,
+    ERROR=4,
+    FATAL=5
 };
 
-struct PacketHeader {
-    uint16_t sourcePort;
-    uint16_t destPort;
-    int sequenceNumber;
+struct CustomPacket {
+    uint8_t flag;
+    uint16_t dataSize;
+    uint16_t packetLength;
+    PacketType packet_type;
+    PacketSubtype packet_subtype;
     std::string data;
-    int flag;
-    uint32_t dataSize;
-    uint32_t packetLength;
-    PacketType packetType;
-    PacketSubType packetSubType;
-    int packetID;
 };
 
-struct SubPacket {
-    PacketHeader header;
-};
-
-struct Packet {
-    PacketHeader header;
-    SubPacket subPacket;
-
-
-};
-
-
-
-Packet generatePacket(PacketType type, PacketSubType subType, int packetID) {
-    Packet packet;
-    packet.header.sourcePort = htons(5000);
-    packet.header.destPort = htons(5000);
-    packet.header.sequenceNumber = packetID;
-    packet.header.data = "Data";
-    packet.header.flag = 0;
-    packet.header.dataSize = packet.header.data.size();
-    packet.header.packetLength = sizeof(Packet);
-    packet.header.packetType = type;
-    packet.header.packetSubType = subType;
-    packet.header.packetID = packetID;
-    SubPacket subPacket;
-    subPacket.header = packet.header;
-    packet.subPacket.header = packet.header;
-
-    return packet;
+void sendPacket(int server, const CustomPacket& packet) {
+    ssize_t sent_bytes = send(server, &packet, sizeof(CustomPacket), 0);
+    if (sent_bytes < 0) {
+        std::cout <<"Error sending data";
+    } else {
+        std::cout << "Sent " << sent_bytes << " bytes." << std::endl;
+    }
 }
 
-
-
-void handleRead(int clientSocket) {
-
-   // recv(clientSocket, buffer, sizeof(PacketHeader), 0);
-
-   // Packet receivedPacket = sizeof(PacketHeader);
-    int packetTypeID, packetSubTypeID, packetID;
-    recv(clientSocket, &packetTypeID, sizeof(packetTypeID), 0);
-    recv(clientSocket, &packetSubTypeID, sizeof(packetSubTypeID), 0);
-    recv(clientSocket, &packetID, sizeof(packetID), 0);
-
-    PacketType type = static_cast<PacketType>(packetTypeID);
-    PacketSubType subType = static_cast<PacketSubType>(packetSubTypeID);
-
-    Packet packetToSend;
-
-    switch (type) {
-        case PacketType::ABORT:
-            break;
-        case PacketType::PROVIDE:
-            switch (subType) {
-                case PacketSubType::CAPABILITIES:
-                    packetToSend = generatePacket(PacketType::REQUEST, PacketSubType::LOCATION_INFO, packetID);
-                    break;
-                case PacketSubType::LOCATION_INFO:
-                    packetToSend = generatePacket(PacketType::PROVIDE, PacketSubType::CERTIFICATE, packetID);
-                    break;
-                case PacketSubType::ASSISTANCE_DATA:
-                case PacketSubType::CERTIFICATE:
-                case PacketSubType::ERROR:
-                case PacketSubType::FATAL:
-                    packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
-                    break;
+void handlePacket(CustomPacket* receivedPacket, int client) {
+CustomPacket responsePacket;
+    responsePacket.flag = 1;
+    responsePacket.dataSize = htons(10); // Example value, change as needed
+    responsePacket.packetLength = htons(sizeof(CustomPacket)); // Example value, change as needed
+    responsePacket.packet_type = PROVIDE; // Example value, change as needed
+    responsePacket.packet_subtype = ASSISTANCE_DATA; // Example value, change as needed
+    switch (receivedPacket->packet_type) {
+        case REQUEST:
+            switch (receivedPacket->packet_subtype) {
+            case ASSISTANCE_DATA:
+            sendPacket(client, responsePacket);
             }
-            break;
-        case PacketType::REQUEST:
-            switch (subType) {
-                case PacketSubType::CAPABILITIES:
-                case PacketSubType::LOCATION_INFO:
-                    packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
-                    break;
-                case PacketSubType::ASSISTANCE_DATA:
-                        packetToSend = generatePacket(PacketType::PROVIDE, PacketSubType::ASSISTANCE_DATA, packetID);
-                    break;
-                case PacketSubType::CERTIFICATE:
-                case PacketSubType::ERROR:
-                case PacketSubType::FATAL:
-                    packetToSend = generatePacket(PacketType::ABORT, PacketSubType::ERROR, packetID);
-                    break;
-            }
-            break;
+
+    break;
+}
+                }
+
+
+
+
+int main() {
+    int server, client;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    CustomPacket receivedPacket; // Added declaration
+
+    // Create a socket
+    server = socket(AF_INET, SOCK_STREAM, 0);
+    if (server < 0) {
+        std::cout << "Error creating socket";
+        return 1;
     }
 
-   // sendPacket(clientSocket, packetToSend); //when the server gets one of these packets, it will send a packet based on the packet recieved
-}
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(8080);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
 
+    bind(server, (struct sockaddr*)&server_addr, sizeof(server_addr));
 
-    int server() {
-    if (serverSocket == -1) {
-        std::cout << "Failed to create socket" << std::endl;
-        return -1;
+    listen(server, 0);
+
+    std::cout << "Waiting for connection" << std::endl;
+
+    client = accept(server, (struct sockaddr*)&client_addr, &client_len);
+
+    std::cout << "Connection established" << std::endl;
+
+    ssize_t received_bytes = recv(client, &receivedPacket, sizeof(CustomPacket), 0);
+    if (received_bytes < 0) {
+        std::cout << "Error receiving data";
+        close(client);
+        close(server);
+        return 1;
     }
 
-    sockaddr_in server_address, client_address;
-    socklen_t client_length = sizeof(client_address);
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(5000); // Port number, change if needed
-
-    bind(serverSocket, (struct sockaddr*)&server_address, sizeof(server_address));
-    listen(serverSocket, 5);
-
-     clientSocket=accept(serverSocket, (struct sockaddr*)&client_address, &client_length);
-    std::cout << "Client connected"<<std::endl;
-
-
-    while (getchar()) {
-    Packet receivedPacket;
-    int bytesReceived1 = recv(clientSocket, &receivedPacket, sizeof(Packet), 0); // the message from client
-        if (bytesReceived1 <= 0) {
-        std::cout << "Client disconnected." << std::endl;
-        break;
-}
-
-    std::cout << "Packet Type: " << static_cast<int>(receivedPacket.header.packetType) << std::endl;
-    std::cout << "Packet SubType: " << static_cast<int>(receivedPacket.header.packetSubType) << std::endl;
-
-}
-
-
-
-    close(clientSocket);
-
-
-    return 0;
-}
-
-
-    int main() {
-
-
-        server();
-
+    std::cout << "Received Packet:" << std::endl;
+    std::cout << "Flag: " << (int)receivedPacket.flag << std::endl;
+    std::cout << "Data Size: " << ntohs(receivedPacket.dataSize) << std::endl;
+    std::cout << "Packet Length: " << ntohs(receivedPacket.packetLength) << std::endl;
+    std::cout << "Packet Type: " << (int)receivedPacket.packet_type << std::endl;
+    std::cout << "Packet Subtype: " << (int)receivedPacket.packet_subtype << std::endl;
+    handlePacket(&receivedPacket, client);
+    close(client);
+    close(server);
 
     return 0;
 }
