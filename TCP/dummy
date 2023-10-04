@@ -29,6 +29,14 @@ struct CustomPacket {
     uint8_t data=message.size()+1;
 
 };
+void receiveResponse(int sockfd, CustomPacket& responsePacket) {
+    ssize_t received_bytes = recv(sockfd, &responsePacket, sizeof(CustomPacket), 0);
+    if (received_bytes < 0) {
+        perror("Error receiving data");
+    } else {
+        std::cout << "Received " << received_bytes << " bytes." << std::endl;
+    }
+}
 
 int main() {
     int sockfd;
@@ -66,6 +74,16 @@ int main() {
     }
 
     std::cout << "Sent " << sent_bytes << " bytes." << std::endl;
+
+CustomPacket responsePacket;
+    receiveResponse(sockfd, responsePacket);
+std::cout << "Received Packet:" << std::endl;
+    std::cout << "Flag: " << (int)responsePacket.flag << std::endl;
+    std::cout << "Data Size: " << ntohs(responsePacket.dataSize) << std::endl;
+    std::cout << "Packet Length: " << ntohs(responsePacket.packetLength) << std::endl;
+    std::cout << "Packet Type: " << (int)responsePacket.packet_type << std::endl;
+    std::cout << "Packet Subtype: " << (int)responsePacket.packet_subtype << std::endl;
+    std::cout << "Received Data: " << responsePacket.data << std::endl
 
     close(sockfd);
 
