@@ -5,13 +5,29 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+enum packetType {
+    REQUEST,
+    PROVIDE,
+    ABORT
+
+};
+enum packetSubtype {
+    CAPABILITIES,
+    ASSISTANCE_DATA,
+    LOCATION_INFO,
+    CERTIFICATE,
+    ERROR,
+    FATAL
+};
 struct CustomPacket {
     uint8_t flag;
     uint16_t dataSize;
     uint16_t packetLength;
-    uint8_t packetType;
-    uint8_t packetSubtype;
-    char data[1024];
+    packetType packet_type;
+   packetSubtype packet_subtype;
+    std::string message;
+    uint8_t data=message.size()+1;
+
 };
 
 int main() {
