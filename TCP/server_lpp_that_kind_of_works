@@ -5,18 +5,18 @@
 #include <netinet/in.h>
 
 enum PacketType {
-    REQUEST=0,
-    PROVIDE=1,
-    ABORT=2
+    REQUEST = 0,
+    PROVIDE = 1,
+    ABORT = 2
 };
 
 enum PacketSubtype {
-    CAPABILITIES=0,
-    ASSISTANCE_DATA=1,
-    LOCATION_INFO=2,
-    CERTIFICATE=3,
-    ERROR=4,
-    FATAL=5
+    CAPABILITIES = 0,
+    ASSISTANCE_DATA = 1,
+    LOCATION_INFO = 2,
+    CERTIFICATE = 3,
+    ERROR = 4,
+    FATAL = 5
 };
 
 struct CustomPacket {
@@ -25,46 +25,57 @@ struct CustomPacket {
     uint16_t packetLength;
     PacketType packet_type;
     PacketSubtype packet_subtype;
-    std::string data;
+    char data[256];  // Changed data to a fixed size char array
 };
 
 void sendPacket(int server, const CustomPacket& packet) {
     ssize_t sent_bytes = send(server, &packet, sizeof(CustomPacket), 0);
     if (sent_bytes < 0) {
-        std::cout <<"Error sending data";
+        std::cout << "Error sending data";
     } else {
         std::cout << "Sent " << sent_bytes << " bytes." << std::endl;
     }
 }
 
 void handlePacket(CustomPacket* receivedPacket, int client) {
-CustomPacket responsePacket;
-    responsePacket.flag = 1;
-    responsePacket.dataSize = htons(10); // Example value, change as needed
-    responsePacket.packetLength = htons(sizeof(CustomPacket)); // Example value, change as needed
-    responsePacket.packet_type = PROVIDE; // Example value, change as needed
-    responsePacket.packet_subtype = ASSISTANCE_DATA; // Example value, change as needed
     switch (receivedPacket->packet_type) {
         case REQUEST:
             switch (receivedPacket->packet_subtype) {
-            case ASSISTANCE_DATA:
-            sendPacket(client, responsePacket);
-            }
+                case ASSISTANCE_DATA: {
+                    CustomPacket req_assistdata_responsePacket;
+                    req_assistdata_responsePacket.flag = 1;
+                    strcpy(req_assistdata_responsePacket.data, "Assistance");  // Copy data to the char array
+                    req_assistdata_responsePacket.dataSize = strlen(req_assistdata_responsePacket.data);
+                    req_assistdata_responsePacket.packetLength = sizeof(CustomPacket);
+                    req_assistdata_responsePacket.packet_type = PROVIDE;
+                    req_assistdata_responsePacket.packet_subtype = ASSISTANCE_DATA;
 
-    break;
-}
+                    sendPacket(client, req_assistdata_responsePacket);
                 }
+                break;
+                case ERROR: {
+                    CustomPacket req_error;
+                    req_error.flag = 0;
+                    strcpy(req_error.data, "error");  // Copy data to the char array
+                    req_error.dataSize = strlen(req_error.data);
+                    req_error.packetLength = sizeof(CustomPacket);
+                    req_error.packet_type = PROVIDE;
+                    req_error.packet_subtype = ERROR;
 
-
-
+                    sendPacket(client, req_error);
+                }
+                break;
+            }
+            break;
+    }
+}
 
 int main() {
     int server, client;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
-    CustomPacket receivedPacket; // Added declaration
+    CustomPacket receivedPacket;
 
-    // Create a socket
     server = socket(AF_INET, SOCK_STREAM, 0);
     if (server < 0) {
         std::cout << "Error creating socket";
@@ -83,7 +94,7 @@ int main() {
 
     client = accept(server, (struct sockaddr*)&client_addr, &client_len);
 
-    std::cout << "Connection established" << std::endl;
+    std::cout << "Connection made" << std::endl;
 
     ssize_t received_bytes = recv(client, &receivedPacket, sizeof(CustomPacket), 0);
     if (received_bytes < 0) {
@@ -95,10 +106,12 @@ int main() {
 
     std::cout << "Received Packet:" << std::endl;
     std::cout << "Flag: " << (int)receivedPacket.flag << std::endl;
-    std::cout << "Data Size: " << ntohs(receivedPacket.dataSize) << std::endl;
-    std::cout << "Packet Length: " << ntohs(receivedPacket.packetLength) << std::endl;
+    std::cout << "Data: " << receivedPacket.data << std::endl;
+    std::cout << "Data Size: " << receivedPacket.dataSize << std::endl;
+    std::cout << "Packet Length: " << receivedPacket.packetLength << std::endl;
     std::cout << "Packet Type: " << (int)receivedPacket.packet_type << std::endl;
     std::cout << "Packet Subtype: " << (int)receivedPacket.packet_subtype << std::endl;
+
     handlePacket(&receivedPacket, client);
     close(client);
     close(server);
