@@ -26,7 +26,7 @@ struct CustomPacket {
     uint16_t packetLength;
     packetType packet_type;
     packetSubtype packet_subtype;
-    char data[256];  // Changed data to a fixed size char array
+    char data[256];  
 };
 
 void receiveResponse(int client, CustomPacket& responsePacket) {
@@ -50,13 +50,13 @@ int main() {
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
-    server_addr.sin_addr.s_addr = inet_addr("10.5.61.52"); 
+    server_addr.sin_addr.s_addr = inet_addr("10.5.61.52");  
 
     connect(client, (struct sockaddr*)&server_addr, sizeof(server_addr));
 
     CustomPacket packet;
     packet.flag = 1;
-    strcpy(packet.data, "req");  // Copy data to the char array
+    strcpy(packet.data, "req");  
     packet.dataSize = strlen(packet.data);
     packet.packetLength = sizeof(CustomPacket);
     packet.packet_type = REQUEST;
