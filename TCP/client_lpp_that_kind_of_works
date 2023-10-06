@@ -38,6 +38,74 @@ void receiveResponse(int client, CustomPacket& responsePacket) {
     }
 }
 
+void sendPacket(int server, const CustomPacket& packet) {
+    ssize_t sent_bytes = send(server, &packet, sizeof(CustomPacket), 0);
+    if (sent_bytes < 0) {
+        std::cout << "Error sending data";
+    } else {
+        std::cout << "Sent " << sent_bytes << " bytes." << std::endl;
+    }
+}
+
+void handlePacket(CustomPacket* receivedPacket, int server) {
+CustomPacket response
+    switch (receivedPacket->packet_type) {
+        case REQUEST:
+            switch (receivedPacket->packet_subtype) {
+                case ASSISTANCE_DATA: 
+                   response.flag = 1;
+                    strcpy(response.data, "Assistance");  
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                    response.packet_type = PROVIDE;
+                    response.packet_subtype = ASSISTANCE_DATA;
+
+                    sendPacket(server, responsePacket);
+                break;
+                case ERROR: 
+                    response.flag = 0;
+                    strcpy(response.data, "error"); 
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                   response.packet_type = PROVIDE;
+                    response.packet_subtype = ERROR;
+
+                    sendPacket(server, response);
+                break;
+            case FATAL:
+                    response.flag = 1;
+                    strcpy(response.data, "Aborting");  
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                    response.packet_type = ABORT;
+                    response.packet_subtype = ERROR;
+
+                    sendPacket(server, response);
+            break;
+        case CERTIFICATE:
+                    response.flag = 1;
+                    strcpy(response.data, "sending certificate");  
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                    response.packet_type = REQUEST;
+                    response.packet_subtype = CAPABILITIES;
+
+        sendPacket(server, response);
+        break;
+    case LOCATION_INFO:
+                response.flag = 0;
+                    strcpy(response.data, "forbidden request"); 
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                   response.packet_type = PROVIDE;
+                    response.packet_subtype = ERROR;
+
+        sendPacket(server, response);
+        break;
+
+    }
+    break;
+
 int main() {
     int client;
     struct sockaddr_in server_addr;
@@ -79,6 +147,7 @@ int main() {
     std::cout << "Packet Length: " << responsePacket.packetLength << std::endl;
     std::cout << "Packet Type: " << responsePacket.packet_type << std::endl;
     std::cout << "Packet Subtype: " << responsePacket.packet_subtype << std::endl;
+    handlePacket(&receivedPacket, client);
 
     close(client);
 
