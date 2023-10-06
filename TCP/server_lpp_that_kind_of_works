@@ -38,35 +38,59 @@ void sendPacket(int server, const CustomPacket& packet) {
 }
 
 void handlePacket(CustomPacket* receivedPacket, int client) {
+CustomPacket response
     switch (receivedPacket->packet_type) {
         case REQUEST:
             switch (receivedPacket->packet_subtype) {
-                case ASSISTANCE_DATA: {
-                    CustomPacket req_assistdata_responsePacket;
-                    req_assistdata_responsePacket.flag = 1;
-                    strcpy(req_assistdata_responsePacket.data, "Assistance");  // Copy data to the char array
-                    req_assistdata_responsePacket.dataSize = strlen(req_assistdata_responsePacket.data);
-                    req_assistdata_responsePacket.packetLength = sizeof(CustomPacket);
-                    req_assistdata_responsePacket.packet_type = PROVIDE;
-                    req_assistdata_responsePacket.packet_subtype = ASSISTANCE_DATA;
+                case ASSISTANCE_DATA: 
+                   response.flag = 1;
+                    strcpy(response.data, "Assistance");  
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                    response.packet_type = PROVIDE;
+                    response.packet_subtype = ASSISTANCE_DATA;
 
-                    sendPacket(client, req_assistdata_responsePacket);
-                }
+                    sendPacket(client, responsePacket);
                 break;
-                case ERROR: {
-                    CustomPacket req_error;
-                    req_error.flag = 0;
-                    strcpy(req_error.data, "error");  // Copy data to the char array
-                    req_error.dataSize = strlen(req_error.data);
-                    req_error.packetLength = sizeof(CustomPacket);
-                    req_error.packet_type = PROVIDE;
-                    req_error.packet_subtype = ERROR;
+                case ERROR: 
+                    response.flag = 0;
+                    strcpy(response.data, "error"); 
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                   response.packet_type = PROVIDE;
+                    response.packet_subtype = ERROR;
 
-                    sendPacket(client, req_error);
-                }
+                    sendPacket(client, response);
                 break;
-            }
+            case FATAL:
+                    response.flag = 1;
+                    strcpy(response.data, "Aborting");  
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                    response.packet_type = ABORT;
+                    response.packet_subtype = ERROR;
+
+                    sendPacket(client, response);
+                    close(client);
             break;
+        case CERTIFICATE:
+                    response.flag = 1;
+                    strcpy(response.data, "sending certificate");  
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                    response.packet_type = REQUEST;
+                    response.packet_subtype = CAPABILITIES;
+
+        sendPacket(client, response);
+        break;
+    case LOCATION_INFO:
+                response.flag = 0;
+                    strcpy(response.data, "forbidden request"); 
+                    response.dataSize = strlen(response.data);
+                    response.packetLength = sizeof(response);
+                   response.packet_type = PROVIDE;
+                    response.packet_subtype = ERROR;
+
     }
 }
 
