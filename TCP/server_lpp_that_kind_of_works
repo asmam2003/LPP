@@ -91,7 +91,12 @@ CustomPacket response
                    response.packet_type = PROVIDE;
                     response.packet_subtype = ERROR;
 
+        sendPacket(client, response);
+        break;
+
     }
+    break;
+    case 
 }
 
 int main() {
